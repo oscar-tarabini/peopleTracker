@@ -68,8 +68,8 @@ tracker.upsideDown = false;
 tracker.mirrored = false;
 
 % ROS topics
-rgbTopic = '/camera/rgb/image_raw'; % message type: sensor_msgs/Image encoding: yuv422
-rgbMsgType = 'sensor_msgs/Image';
+% rgbTopic = '/camera/rgb/image_raw'; % message type: sensor_msgs/Image encoding: yuv422
+% rgbMsgType = 'sensor_msgs/Image';
 depthTopic = '/camera/depth_registered/image_raw'; % message type: sensor_msgs/Image encoding: 16UC1
 depthMsgType = 'sensor_msgs/Image';
 odometryTopic = '/odom'; % topic for odometry
@@ -78,8 +78,8 @@ odometryMsgType = 'nav_msgs/Odometry'; % message type: nav_msgs/Odometry
 % compressed ROS topics KOBUKI
 rgbTopic = '/camera/rgb/image_color/compressed'; % message type: sensor_msgs/CompressedImage encoding: bgr8 jpeg compressed
 rgbMsgType = 'sensor_msgs/CompressedImage';
-depthTopic = '/camera/depth_registered/image_raw/compressed'; % message type: sensor_msgs/CompressedImage encoding: 16UC1 jpeg compressed
-depthMsgType = 'sensor_msgs/CompressedImage';
+% depthTopic = '/camera/depth_registered/image_raw/compressed'; % message type: sensor_msgs/CompressedImage encoding: 16UC1 jpeg compressed
+% depthMsgType = 'sensor_msgs/CompressedImage';
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % stralETH configuration - uncomment the following lines when running on starlETH 
 
@@ -245,7 +245,7 @@ end
 
 function [depth, rgb, tracker] = updateFromRos(tracker)
     % read data from ROS
-    timeout = 1;
+    timeout = 3;
     depthMessage = [];
     rgbMessage = [];
     rgb = [];
@@ -260,8 +260,8 @@ function [depth, rgb, tracker] = updateFromRos(tracker)
                 odometryMessage = tracker.odometrySubscriber.takeMessage(timeout);
             end
         end
-              
-               
+           
+                    
 %         % rgb jpeg decompression of bayer image
 %         jImg = javax.imageio.ImageIO.read(java.io.ByteArrayInputStream(typecast(rgbMessage.data,'uint8')));
 %         h = jImg.getHeight;
@@ -271,20 +271,27 @@ function [depth, rgb, tracker] = updateFromRos(tracker)
 %         rgb = demosaic(transpose(reshape(bayerImg(1,:,:), [w,h])), 'grbg');      
         
                
-        % rgb jpeg decompression of bgr8 image
+%         % rgb jpeg decompression of bgr8 image
+%         jImg = javax.imageio.ImageIO.read(java.io.ByteArrayInputStream(typecast(rgbMessage.data,'uint8')));
+%         h = jImg.getHeight;
+%         w = jImg.getWidth;
+%         bgrImg = typecast(jImg.getData.getDataStorage, 'uint8');
+%         rgb = cat(3,reshape(bgrImg(3:3:end),[w h])', reshape(bgrImg(2:3:end),[w h])', reshape(bgrImg(1:3:end),[w,h])');
+ 
+          % rgb jpeg decompression of rgb8 image
         jImg = javax.imageio.ImageIO.read(java.io.ByteArrayInputStream(typecast(rgbMessage.data,'uint8')));
         h = jImg.getHeight;
         w = jImg.getWidth;
-        bgrImg = typecast(jImg.getData.getDataStorage, 'uint8');
-        rgb = cat(3,reshape(bgrImg(3:3:end),[w h])', reshape(bgrImg(2:3:end),[w h])', reshape(bgrImg(1:3:end),[w,h])');
- 
-        
+        rgbImg = typecast(jImg.getData.getDataStorage, 'uint8');
+        rgb = cat(3,reshape(rgbImg(1:3:end),[w h])', reshape(rgbImg(2:3:end),[w h])', reshape(rgbImg(3:3:end),[w,h])');
+  
+       
         % not compressed image
-        
-%          w = rgbMessage.width;
-%          h = rgbMessage.height;
+                
 %          
 %          % from yuv422 to rgb
+%          w = rgbMessage.width;
+%          h = rgbMessage.height; 
 %          temp = zeros(w*h,3,'uint8');
 %          temp(:,1) = typecast(rgbMessage.data(2:2:end),'uint8');
 %          temp(1:2:end,2) = typecast(rgbMessage.data(1:4:end),'uint8');
@@ -301,9 +308,21 @@ function [depth, rgb, tracker] = updateFromRos(tracker)
 %          
          
          % decode bgr8 encoding 8UC3 image
-         %rgb = cat(3,reshape(typecast(rgbMessage.data(3:3:end),'uint8'),[w h])', reshape(typecast(rgbMessage.data(2:3:end),'uint8'),[w h])', reshape(typecast(rgbMessage.data(1:3:end),'uint8'),[w,h])');
- 
-       
+%          w = rgbMessage.width;
+%          h = rgbMessage.height;
+%          rgb = cat(3,reshape(typecast(rgbMessage.data(3:3:end),'uint8'),[w h])', reshape(typecast(rgbMessage.data(2:3:end),'uint8'),[w h])', reshape(typecast(rgbMessage.data(1:3:end),'uint8'),[w,h])');
+%  
+
+          % decode rbg8 encoding 8UC3 image
+%          w = rgbMessage.width;
+%          h = rgbMessage.height;
+%          rgb = cat(3,reshape(typecast(rgbMessage.data(1:3:end),'uint8'),[w h])', reshape(typecast(rgbMessage.data(2:3:end),'uint8'),[w h])', reshape(typecast(rgbMessage.data(3:3:end),'uint8'),[w,h])');
+%  
+
+         % decode grbg 
+%          w = rgbMessage.width;
+%          h = rgbMessage.height;
+
     else
         rgb = [];
         while isempty(depthMessage) 
@@ -323,10 +342,8 @@ function [depth, rgb, tracker] = updateFromRos(tracker)
 %     w = jDepth.getWidth;
 %     depth = jDepth; % to do
 %     return
-    
-    depth = depthMessage;
-    return
-    
+   
+   
     % decode 16UC1 depth   
     w = depthMessage.width;
     h = depthMessage.height;

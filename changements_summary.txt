@@ -1,0 +1,5 @@
+MAIN CHANGEMENTS SUMMARY
+
+1) setupTracker: add conversion of compressed image and other encodings
+
+2) getCandidateLegs: add a list of potentialObstacle (the ones discarded as candidate legs)

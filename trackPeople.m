@@ -1,4 +1,4 @@
-function [ people, tracker ] = trackPeople( tracker )
+function [ people, potentialObstacles, tracker] = trackPeople( tracker )
 %PEOPLETRACKER Main function for people tracking. New RGB-D data is fetched from
 %the selected source, processed and an array of tracked people is returned.
 %
@@ -8,6 +8,9 @@ function [ people, tracker ] = trackPeople( tracker )
 %
 %Outputs:
 %   people = array of person structs (see below)
+%   potentialObstacles = array of potentialObstacles structs (see
+%                        definition in GETCANDIDATELEGS
+%
 %   tracker = updated tracker object to be passed to a new call of this function
 %
 %Person struct: 
@@ -53,7 +56,7 @@ end
 [rotatedPoints,~,Rinv] = rotatePointCloud(points, tracker.floorPlane);
 
 % --- search candidates legs in the point cloud ---
-candidates = getCandidateLegs(rotatedPoints, colors);
+[candidates, potentialObstacles] = getCandidateLegs(rotatedPoints, colors);
 tracker.candidates = candidates;
 
 % --- extract features and predict candidates leg probabilities ---
@@ -81,6 +84,7 @@ people(1:numLegTracks+numPeopleTracks) = struct('id', 0, 'peoplePosition', zeros
 
 % fill person struct for every peopleTracks
 oldPeopleToKill = [];
+
 for i=1:numPeopleTracks
     
     % person position, velocity and heading, eventually considering odometry
@@ -152,11 +156,13 @@ people(oldPeopleToKill) = [];
 
 % consider also not associated legs as unseen people
 notUsedLegTracks = find(legTrackOnPeople < 1); 
+legTracksSinglePersonLeg = [];
 numPeople = numPeopleTracks - length(oldPeopleToKill);
 for i=1:length(notUsedLegTracks)
     leg = tracker.legTracks(notUsedLegTracks(i));
     if (leg.prediction.x(5)+1)/2 > legProbabilityThreshold
         % if leg has an high probability, create a new person struct with id 0
+        legTracksSinglePersonLeg = [legTracksSinglePersonLeg notUsedLegTracks(i)];
         numPeople = numPeople + 1;
         people(numPeople).peoplePosition = (R*(leg.prediction.x(1:2)-robotPosition))';
         people(numPeople).peopleVelocity = (R*leg.prediction.x(3:4))';
@@ -170,6 +176,21 @@ for i=1:length(notUsedLegTracks)
     end
 end
 people(numPeople+1:end) = [];
+
+
+% update potentialObstacles with candidates not assigned to any person
+for j=1:length(candidates)
+   if ~isempty(candidatesTrack) && candidatesTrack(j) == 0       
+      % candidate is not associated to any leg track
+      potentialObstacles(end+1).rectangleOnFloor = candidates(j).rectangleOnFloor ./ 1000; % transform in meters     
+   elseif ~isempty(candidatesTrack) && candidatesTrack(j) ~= 0 &&  legTrackOnPeople(candidatesTrack(j)) == 0 && (isempty(legTracksSinglePersonLeg) || isempty(find(legTracksSinglePersonLeg == candidatesTrack(j))))
+      % it's not a single leg
+     potentialObstacles(end+1).rectangleOnFloor = candidates(j).rectangleOnFloor ./ 1000; % transform in meters     
+   end
+end
+
+        
+
 
 % publish to ROS
 if strcmp(tracker.sourceType,'ros')
@@ -339,6 +360,14 @@ if tracker.enablePlotPhoto || tracker.enablePlotMap
         if tracker.recordVideo
             writeVideo(tracker.writerObjMap, getframe(tracker.hMap));
         end
+        
+        % draw potentialObstacles rectangles
+        for j=1:length(potentialObstacles)
+          rectangleObstacle = potentialObstacles(j).rectangleOnFloor;
+          rectangleObstacle(:,end+1) = rectangleObstacle(:,1);
+          plot(tracker.hMap, rectangleObstacle(1,:) , rectangleObstacle(2,:),'r','MarkerSize',10);          
+        end
+        
         hold(tracker.hMap,'off');
     end
           

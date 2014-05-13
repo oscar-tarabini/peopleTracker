@@ -1,4 +1,4 @@
-function [ candidates ] = getCandidateLegs( points, colors )
+function [ candidates, potentialObstacles ] = getCandidateLegs( points, colors )
 %GETCANDIDATELEGS search for clusters of points which can be candidate to
 %be legs and return them in a vector of candidate structs.
 %   
@@ -9,6 +9,8 @@ function [ candidates ] = getCandidateLegs( points, colors )
 %Output:
 %   candidates = vector of M candidate struct (see below in the code the 
 %                definition of the candidate struct)
+%   potentialObstacles = vector of K (K>=M) potential obstacles, which are
+%                        discarded from being candidate legs
     
     if isempty(colors)
         enabledColor = false;
@@ -80,6 +82,14 @@ function [ candidates ] = getCandidateLegs( points, colors )
     % initialize candidates struct array
     candidates(1:nClusters) = struct('rectangleOnFloor',zeros(4,2),'footPoints',[],'legPoints',[],'allPoints',[],'legPointsNormalized',[], 'legColors', [], 'footColors', [], 'centroid', [], 'silhouette',[]);
     
+    
+    % potentialObstacles struct:
+    %     rectangleOnFloor = vertices of the rectangle containing the foot 
+    %                        candidate projection onto the floor
+    
+    % initialize candidates struct array
+    potentialObstacles(1:nClusters) = struct('rectangleOnFloor',zeros(4,2));
+    
     % rough filtering of clusters based on their dimensions
     clusterOK(1:nClusters) = 0;
     candidateOK(1:nClusters) = 0;
@@ -89,24 +99,31 @@ function [ candidates ] = getCandidateLegs( points, colors )
     maxTol = 600; % max foot size in mm
     minNumPoints = 20; % minimum number of points to consider a cluster
         
+    id_obstacle = 1;
+    
     for i=1:nClusters
         footPoints = footCutPoints(:,class == i);
+        
+        % find bounding rectangle on floor
+        rectangleOnFloor =  minBoundingBox(footPoints(1:2,:));
                 
         if size(footPoints, 2)<minNumPoints || rank(footPoints) < 3
             % cluster with too few points
             clusterOK(i) = 0;
+            potentialObstacles(id_obstacle).rectangleOnFloor = rectangleOnFloor ./ 1000; % transform in meters
+            id_obstacle = id_obstacle + 1;
             continue;
         end
         
-        % find bounding rectangle on floor
-        rectangleOnFloor =  minBoundingBox(footPoints(1:2,:));
-        
+                
         l1 = sqrt(sum((rectangleOnFloor(:,1)-rectangleOnFloor(:,2)).^2));
         l2 = sqrt(sum((rectangleOnFloor(:,2)-rectangleOnFloor(:,3)).^2));
         
         if l1<minTol && l2<minTol
             % cluster too small
             clusterOK(i) = 0;
+            potentialObstacles(id_obstacle).rectangleOnFloor = rectangleOnFloor ./ 1000; % transform in meters
+            id_obstacle = id_obstacle + 1;
             continue;
         end
         
@@ -115,6 +132,10 @@ function [ candidates ] = getCandidateLegs( points, colors )
         if l1<maxTol && l2<maxTol && l1>minTol && l2>minTol
             % candidate has right dimensions
             candidateOK(i) = 1;            
+        else
+            % put the candidate among the obstacles
+            potentialObstacles(id_obstacle).rectangleOnFloor = rectangleOnFloor ./ 1000; % transform in meters
+            id_obstacle = id_obstacle + 1;
         end
         
         centroidsOnFloor(:,i) = mean(footPoints(1:2,:),2);
@@ -130,6 +151,8 @@ function [ candidates ] = getCandidateLegs( points, colors )
     candidateOK(clusterOK == 0) = [];
     
     candidates(candidateOK == 0) = [];
+    
+    potentialObstacles(id_obstacle:nClusters) = [];
     
     % all the candidates centroids will be used for determining Voronoi regions for the expansion 
     centroidsOnFloor = [centroidsOnFloor(:, candidateOK == 1) centroidsOnFloor(:, candidateOK == 0)];
