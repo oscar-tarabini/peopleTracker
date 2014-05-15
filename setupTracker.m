@@ -405,6 +405,13 @@ function publishROS(tracker, people)
     tracker.peoplePublisher.publish(msg);
 end
 
+% debug ------------------------------------------------
+run([libraryPath '/ros_matlab_bridge/jmb_init']);
+tracker.node = jmb_init_node('PeopleTracker', 'http://localhost:11311');
+tracker.peoplePublisher = tracker.node.newPublisher('/people','people_msg/People');
+tracker.publish = @(people) publishROS(tracker, people);
+% ------------------------------------------------------
+
 if strcmp(sourceType,'oni')
     % initialize OpenNI context for record video
     CONFIG_XML_PATH='openni/SensorConfig.xml';

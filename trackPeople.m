@@ -191,6 +191,11 @@ end
 
         
 
+% debug ------------------------------------------------------------
+% only publish to ros, after reading from oni
+tracker.publish(people);
+%----------------------------------------------------------------
+
 
 % publish to ROS
 if strcmp(tracker.sourceType,'ros')

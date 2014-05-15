@@ -2,8 +2,8 @@
 addpath '..'
 
 % flags for enabling plots
-enablePlotPhoto = true; % plot of colored people
-enablePlotMap = true; % plot of 2D map top-view
+enablePlotPhoto = false; % plot of colored people
+enablePlotMap = false; % plot of 2D map top-view
 
 % oni files
 %videoFilename = 'exampleVideo.oni';
